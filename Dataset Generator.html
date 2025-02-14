@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MACHINE LEARNING SCENARIO</title>
+    <style>
+        body {
+            background: #e0e5ec;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: top;
+            height: 100vh;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .buttons button, .modal button {
+            background: #e0e5ec;
+            border: none;
+            padding: 10px 20px;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 5px 5px 10px #a3b1c6, -5px -5px 10px #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .buttons button:active, .modal button:active {
+            box-shadow: inset 5px 5px 10px #a3b1c6, inset -5px -5px 10px #ffffff;
+        }
+        .table-container {
+            max-height: 400px;  /* Ensures scrolling */
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        thead {
+            position: sticky;
+            top: 0;
+            background: #e0e5ec;  /* Ensure it has a background */
+            z-index: 10;
+        }
+        
+        th {
+            background: #e0e5ec;
+        }
+        td {
+            position: sticky;
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            background: #e0e5ec;
+            box-shadow: inset 3px 3px 5px #a3b1c6, inset -3px -3px 5px #ffffff;
+        }
+        select {
+            border: none;
+            padding: 5px;
+            background: #e0e5ec;
+            border-radius: 5px;
+            box-shadow: inset 2px 2px 4px #a3b1c6, inset -2px -2px 4px #ffffff;
+            text-align: center;
+        }
+        input {
+            border: none;
+            padding: 5px;
+            background: #e0e5ec;
+            border-radius: 5px;
+            box-shadow: inset 2px 2px 4px #a3b1c6, inset -2px -2px 4px #ffffff;
+            text-align: center;
+            width: 50px;;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #e0e5ec;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 10px 10px 20px #a3b1c6, -10px -10px 20px #ffffff;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            background: #e0e5ec;
+            padding: 10px 20px;
+            border-radius: 10px;
+            box-shadow: 5px 5px 10px #a3b1c6, -5px -5px 10px #ffffff;
+        }
+    </style>
+    <script>
+        function openModal() {
+            document.getElementById("columnModal").style.display = "block";
+        }
+        function closeModal() {
+            document.getElementById("columnModal").style.display = "none";
+        }
+        function addRow() {
+            const table = document.getElementById("dynamicTable").getElementsByTagName('tbody')[0];
+            const firstRow = table.rows[0];
+            const newRow = firstRow.cloneNode(true);
+            
+            for (let cell of newRow.cells) {
+                let input = cell.querySelector("input");
+                if (input) input.value = ""; 
+            }
+            
+            table.appendChild(newRow);
+        }
+        function duplicateRow(button) {
+            const row = button.closest("tr");
+            const newRow = row.cloneNode(true);
+            row.parentNode.insertBefore(newRow, row.nextSibling);
+        }
+        function removeRow(button) {
+            const row = button.closest("tr");
+            if (row.parentElement.rows.length > 1) {
+                row.remove();
+            }
+        }
+        function addColumn() {
+            const columnName = document.getElementById("columnName").value;
+            const columnType = document.getElementById("columnType").value;
+            const columnIp = document.getElementById("columnIp").value;
+            const columnPort = document.getElementById("columnPort").value;
+            if (!columnName) return;
+            
+            const table = document.getElementById("dynamicTable");
+            const headerRow = table.tHead.rows[0];
+            const newHeader = document.createElement("th");
+            newHeader.textContent = columnName;
+            newHeader.setAttribute("data-type", columnType); // Store type
+            newHeader.setAttribute("data-ip", columnIp); // Store ip
+            newHeader.setAttribute("data-port", columnPort); // Store port
+            newHeader.style.writingMode = "vertical-lr";
+            
+            let insertBeforeIndex = [...headerRow.cells].findIndex(th => th.textContent === (columnType === "output" ? "Act" : "Loc"));
+            headerRow.insertBefore(newHeader, headerRow.cells[insertBeforeIndex]);
+            
+            for (let row of table.tBodies[0].rows) {
+                const newCell = document.createElement("td");
+                newCell.innerHTML = '<input type="text" maxlength="5">';
+                newCell.setAttribute("data-type", columnType); // Store type in cell
+                newCell.setAttribute("data-ip", columnIp); // Store ip in cell
+                newCell.setAttribute("data-port", columnPort); // Store port in cell
+                row.insertBefore(newCell, row.cells[insertBeforeIndex]);
+            }
+            
+            closeModal();
+        }
+        function extractJSON() {
+            const table = document.getElementById("dynamicTable");
+            const headers = Array.from(table.tHead.rows[0].cells).map(th => ({
+                name: th.textContent,
+                type: th.getAttribute("data-type") || "",
+                ip: th.getAttribute("data-ip") || "",
+                port: th.getAttribute("data-port") || ""
+            }));
+        
+            const groupedData = { dataset: { input: {}, output: { "Output_Text": [] } } };
+        
+            // Process input columns
+            headers.forEach((header, i) => {
+                if (header.type === "input") {
+                    const firstRowCell = table.tBodies[0].rows[0].cells[i];
+                    let ip = firstRowCell.getAttribute("data-ip") || "0.0.0.0";
+                    let port = firstRowCell.getAttribute("data-port") || "0";
+        
+                    // Convert IP to integer
+                    let ipInt = 0;
+                    const parts = ip.split('.').map(Number);
+                    if (parts.length === 4 && parts.every(num => num >= 0 && num <= 255)) {
+                        ipInt = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+                    }
+                    const key = `${ipInt}:${port}`;
+        
+                    if (!groupedData.dataset.input[key]) {
+                        groupedData.dataset.input[key] = { name: header.name, data: [] };
+                    }
+        
+                    Array.from(table.tBodies[0].rows).forEach(row => {
+                        const cell = row.cells[i];
+                        const input = cell.querySelector("input");
+                        const value = input ? input.value : cell.textContent;
+                        groupedData.dataset.input[key].data.push(value);
+                    });
+                }
+            });
+        
+            // Process output columns
+            // Process output columns
+            headers.forEach((header, i) => {
+                if (header.type === "output") {
+                    Array.from(table.tBodies[0].rows).forEach(row => {
+                        const cell = row.cells[i];
+                        const input = cell.querySelector("input");
+                        const value = input ? input.value : cell.textContent;
+
+                        if (!groupedData.dataset.output[header.name]) {
+                            groupedData.dataset.output[header.name] = []; // Create array if not exists
+                        }
+                        groupedData.dataset.output[header.name].push(value);
+                    });
+                }
+            });
+            
+            const jsonString = JSON.stringify(groupedData, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "extracted_data.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        
+        
+    </script> 
+</head>
+<body>
+    <div class="container">
+        <h2 style="text-align: center; margin-bottom: 20px;">MACHINE LEARNING SCENARIOS</h2>
+        <div class="buttons">
+        <label for="columnName">Peripheral Name:</label>
+        <input type="text" id="columnName">
+        <label for="columnIp">IP</label>
+        <input type="text" id="columnIp">
+        <label for="columnPort">PORT</label>
+        <input type="text" id="columnPort">
+        <label for="columnType">Type:</label>
+            <select id="columnType">
+                <option value="input">Input</option>
+                <option value="output">Output</option>
+            </select>
+        <br>
+        <button onclick="addColumn()">Add</button>
+            <button onclick="extractJSON()">Extract JSON</button>
+        </div>
+        <div class="table-container">
+            <strong>Details</strong>
+            <table id="dynamicTable">
+                <thead>
+                    <tr>
+                        <th data-fixed>Loc</th>
+                        <th data-fixed>Act</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <select>
+                                <option>Silo</option>
+                                <option>Production</option>
+                                <option>Bulkbag</option>
+                                <option>Ncc</option>
+                            </select>
+                        </td>
+                        <td class="actions">
+                            <button onclick="addRow()">+</button>
+                            <button onclick="duplicateRow(this)">⧉</button>
+                            <button onclick="removeRow(this)">🗑</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="columnModal" class="modal">
+        <label for="columnName">Peripheral Name:</label>
+        <input type="text" id="columnName">
+        <button onclick="addColumn()">Add</button>
+        <button onclick="closeModal()">Cancel</button>
+    </div>
+</body>
+</html>
