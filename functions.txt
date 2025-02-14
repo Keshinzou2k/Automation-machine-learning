@@ -1,0 +1,47 @@
+$ML={
+        'this will be the area to paste the generated dataset',
+        'inputs': [],
+        'outputs': [],
+        'input_data': [],
+        'output_data': [],
+        'predictOutput':function(operationInput){
+                Object.keys(operationInput).forEach(key => isNaN(operationInput[key][0]) && (operationInput[key][0] = -1));
+                const processedInput = {};
+                const _output=[]
+                this.inputs.forEach((inp, i) => {
+                        let val = operationInput[inp][0];
+                        let candidates = this.input_data[inp];
+                        let validEntries = new Set(candidates.filter(k => typeof k === "string")
+                        .map(k => k.match(/(<=|>=|<|>)(-?\d+(\.\d+)?)/))
+                        .filter(m => m)
+                        .map(([_, op, num]) => ({ op, num: parseFloat(num), raw: _ }))
+                        .filter(({ op, num }) => (op === ">" && val > num) || (op === ">=" && val >= num) ||
+                                     (op === "<" && val < num) || (op === "<=" && val <= num))
+                        .map(entry => entry.raw));
+                        validEntries.add(val);
+                        processedInput[inp] = [...validEntries];
+                });
+                //console.log(processedInput)
+                let matchIndices = [];
+                let outLen = this.output_data[this.outputs[0]].length;
+                for (let i = 0; i < outLen; i++) {
+                        if (this.inputs.every(inp => processedInput[inp].some(val => val === this.input_data[inp][i] || this.input_data[inp][i] === 'x'))) {
+                                matchIndices.push(i);
+                        }
+                        if (matchIndices.length > 0 && i === outLen - 2) break;
+                }
+                if (matchIndices.length > 0) {
+                        matchIndices.forEach(index => {
+                                let outputValues = {};
+                                this.outputs.forEach(out => outputValues[out] = this.output_data[out][index]);
+                                //console.log("Predicted Output:", outputValues);
+                                _output.push(outputValues);
+                        });
+                }
+                return _output;
+        },
+}
+$ML.inputs=Object.keys($ML.dataset.input),
+$ML.outputs=Object.keys($ML.dataset.output),
+$ML.input_data=$ML.dataset.input,
+$ML.output_data=$ML.dataset.output,
